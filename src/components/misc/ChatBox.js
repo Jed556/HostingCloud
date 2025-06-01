@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import tw from "twin.macro";
-
-const PRIMARY_HEX = "#3c0d99";
-
-const DEFAULT_WIDTH = 400;
-const DEFAULT_HEIGHT = 520;
-const MIN_WIDTH = 320;
-const MIN_HEIGHT = 320;
+import {
+    PRIMARY_HEX,
+    DEFAULT_WIDTH,
+    DEFAULT_HEIGHT,
+    MIN_WIDTH,
+    MIN_HEIGHT,
+    getInitialBoxSize,
+    isResizingHandle
+} from "../../helpers/chatboxHelpers";
+import { askOpenAI, askGemini } from "../../helpers/ChatAPI";
 
 const ChatBoxContainer = tw.div`
   absolute z-50 flex flex-col border
@@ -63,8 +66,11 @@ const ChatBox = ({
         { from: "bot", text: "Hello! How can I help you?" }
     ]);
     const [input, setInput] = useState("");
-    const [boxSize, setBoxSize] = useState({ width, height });
+    const [boxSize, setBoxSize] = useState(
+        getInitialBoxSize({ width, height, minWidth, minHeight })
+    );
     const [inputAnimated, setInputAnimated] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     // Animate in on mount
     useEffect(() => {
@@ -87,14 +93,26 @@ const ChatBox = ({
     };
 
     // Handle sending a message
-    const handleSend = () => {
-        if (input.trim() === "") return;
-        setMessages([...messages, { from: "user", text: input }]);
+    const handleSend = async () => {
+        if (input.trim() === "" || isLoading) return;
+        const userMsg = { from: "user", text: input };
+        setMessages([...messages, userMsg]);
         setInput("");
-        // Simulate bot reply (for now, echo)
-        setTimeout(() => {
-            setMessages(msgs => [...msgs, { from: "bot", text: "Cloudy received: " + input }]);
-        }, 600);
+        setIsLoading(true);
+
+        try {
+            let aiText;
+            try {
+                aiText = await askOpenAI(userMsg.text);
+            } catch (err) {
+                aiText = await askGemini(userMsg.text);
+            }
+            setMessages(msgs => [...msgs, { from: "bot", text: aiText }]);
+        } catch (err) {
+            setMessages(msgs => [...msgs, { from: "bot", text: "Sorry, AI is unavailable." }]);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Handle Enter key
@@ -103,7 +121,6 @@ const ChatBox = ({
             e.preventDefault();
             handleSend();
         }
-        // Prevent typing more than 400 chars
         if (input.length >= 400 && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key) && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
         }
@@ -159,11 +176,7 @@ const ChatBox = ({
             contentEditable={false}
             onMouseDown={e => {
                 // Prevent drag from parent if resizing
-                if (
-                    e.target === ref.current &&
-                    (e.nativeEvent.offsetX > boxSize.width - 16 ||
-                        e.nativeEvent.offsetY > boxSize.height - 16)
-                ) {
+                if (isResizingHandle(e, boxSize)) {
                     e.stopPropagation();
                 }
             }}

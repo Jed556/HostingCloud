@@ -23,7 +23,7 @@ const Link = tw.a`border-b-2 border-transparent hocus:text-gray-300 hocus:border
 
 const LogoContainer = tw.div`flex items-center justify-center lg:justify-start`;
 const LogoImg = tw.img`w-8`;
-const LogoText = tw.h5`ml-2 text-xl font-black`;
+// const LogoText = tw.h5`ml-2 text-xl font-black`;
 const CompanyName = tw.span`ml-2 text-gray-100 font-black tracking-wider`;
 
 const CompanyAddress = tw.p`mt-4 max-w-xs font-medium text-sm mx-auto lg:mx-0 lg:mr-4 leading-loose text-center lg:text-left`;
