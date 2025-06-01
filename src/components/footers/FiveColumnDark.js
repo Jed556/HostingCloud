@@ -52,9 +52,9 @@ export default () => {
               <CompanyName>HostingCloud</CompanyName>
             </LogoContainer>
             <CompanyAddress>
-              123 Road, New Startup Building
-              Carter Road, San Francisco
-              California 40234
+              4 Bliss Project, Brgy. San Lucas I
+              San Pablo City, Laguna
+              Philippines 4000
             </CompanyAddress>
             <SocialLinksContainer>
               <SocialLink href="https://facebook.com">
@@ -123,10 +123,10 @@ export default () => {
             <ColumnHeading>Contact</ColumnHeading>
             <LinkList>
               <LinkListItem>
-                +1 (234) (567)-8901
+                +63 945 391 2038
               </LinkListItem>
               <LinkListItem>
-                <Link href="mailto:support@servana.com">support@servana.com</Link>
+                <Link href="mailto:jguiriba11@gmail.com">support@cloudy.com</Link>
               </LinkListItem>
               <LinkListItem>
                 <Link href="#">Sales</Link>
