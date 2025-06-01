@@ -15,6 +15,7 @@ import { marked } from "marked";
 import { v4 as uuidv4 } from "uuid";
 import { /** @type {message} */ } from "../../interfaces/interfaces";
 import { FaVolumeUp } from "react-icons/fa";
+import { speakMessage } from "../../helpers/TTS";
 
 const ChatBoxContainer = tw.div`
   absolute z-50 flex flex-col border
@@ -207,50 +208,6 @@ const ChatBox = ({
     useEffect(() => {
         localStorage.removeItem(CHAT_HISTORY_KEY);
     }, []);
-
-    // TTS function
-    async function speakMessage(msg) {
-        let prefix = "";
-        if (msg.role === "assistant") prefix = "Cloudy replied: ";
-        else if (msg.role === "user") prefix = "You said: ";
-        else prefix = "";
-
-        // Remove markdown formatting for built-in TTS
-        let plainText = (msg.content || "")
-            .replace(/[*_`>#-]/g, "") // remove *, _, `, >, -
-            .replace(/\[(.*?)\]\((.*?)\)/g, "$1") // remove markdown links, keep text
-            .replace(/!\[(.*?)\]\((.*?)\)/g, "") // remove images
-            .replace(/^\s*\d+\.\s+/gm, "") // remove numbered list
-            .replace(/^\s*[-+*]\s+/gm, "") // remove bullet list
-            .replace(/#+\s?/g, "") // remove headings
-            .replace(/<\/?[^>]+(>|$)/g, "") // remove html tags
-            .replace(/\n+/g, " ") // collapse newlines
-            .trim();
-
-        const utter = new window.SpeechSynthesisUtterance(prefix + plainText);
-        utter.lang = "en-US";
-        window.speechSynthesis.speak(utter);
-
-        // try {
-        //     const audioBase64 = await TTS(`${prefix}${msg.content}`);
-        //     if (audioBase64) {
-        //         const audio = new window.Audio(`data:audio/wav;base64,${audioBase64}`);
-        //         // Pause any currently playing speech
-        //         if (!audio.paused) audio.pause();
-        //         audio.currentTime = 0;
-        //         audio.play().catch(() => {
-        //             // fallback: try to reload and play again
-        //             audio.load();
-        //             audio.play();
-        //         });
-        //     }
-        // } catch (err) {
-        //     // fallback to built-in TTS if Gemini fails
-        //     const utter = new window.SpeechSynthesisUtterance(prefix + (msg.content || ""));
-        //     utter.lang = "en-US";
-        //     window.speechSynthesis.speak(utter);
-        // }
-    }
 
     return (
         <ChatBoxContainer
