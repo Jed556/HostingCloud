@@ -214,9 +214,23 @@ const ChatBox = ({
         if (msg.role === "assistant") prefix = "Cloudy replied: ";
         else if (msg.role === "user") prefix = "You said: ";
         else prefix = "";
-        const utter = new window.SpeechSynthesisUtterance(prefix + (msg.content || ""));
+
+        // Remove markdown formatting for built-in TTS
+        let plainText = (msg.content || "")
+            .replace(/[*_`>#-]/g, "") // remove *, _, `, >, -
+            .replace(/\[(.*?)\]\((.*?)\)/g, "$1") // remove markdown links, keep text
+            .replace(/!\[(.*?)\]\((.*?)\)/g, "") // remove images
+            .replace(/^\s*\d+\.\s+/gm, "") // remove numbered list
+            .replace(/^\s*[-+*]\s+/gm, "") // remove bullet list
+            .replace(/#+\s?/g, "") // remove headings
+            .replace(/<\/?[^>]+(>|$)/g, "") // remove html tags
+            .replace(/\n+/g, " ") // collapse newlines
+            .trim();
+
+        const utter = new window.SpeechSynthesisUtterance(prefix + plainText);
         utter.lang = "en-US";
         window.speechSynthesis.speak(utter);
+
         // try {
         //     const audioBase64 = await TTS(`${prefix}${msg.content}`);
         //     if (audioBase64) {
