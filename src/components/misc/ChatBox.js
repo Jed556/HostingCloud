@@ -10,6 +10,7 @@ import {
     isResizingHandle
 } from "../../helpers/chatboxHelpers";
 import { askAI } from "../../helpers/ChatAPI";
+import { marked } from "marked"; // <-- Add this import
 
 const ChatBoxContainer = tw.div`
   absolute z-50 flex flex-col border
@@ -202,28 +203,44 @@ const ChatBox = ({
                 {messages.map((msg, idx) => (
                     <div
                         key={idx}
-                        // Remove tw="mb-2 flex" and use inline style for alignment
                         style={{
                             display: "flex",
                             justifyContent: msg.from === "user" ? "flex-end" : "flex-start",
                             marginBottom: "0.5rem"
                         }}
                     >
-                        <span
-                            style={{
-                                background: msg.from === "user" ? PRIMARY_HEX : "#ede7f6",
-                                color: msg.from === "user" ? "#fff" : PRIMARY_HEX,
-                                padding: "0.5rem 0.75rem",
-                                borderRadius: "1rem",
-                                display: "inline-block",
-                                marginBottom: "0.25rem",
-                                maxWidth: "75%",
-                                wordBreak: "break-word",
-                                alignSelf: msg.from === "user" ? "flex-end" : "flex-start",
-                            }}
-                        >
-                            {msg.text}
-                        </span>
+                        {msg.from === "bot" ? (
+                            <span
+                                style={{
+                                    background: "#ede7f6",
+                                    color: PRIMARY_HEX,
+                                    padding: "0.5rem 0.75rem",
+                                    borderRadius: "1rem",
+                                    display: "inline-block",
+                                    marginBottom: "0.25rem",
+                                    maxWidth: "75%",
+                                    wordBreak: "break-word",
+                                    alignSelf: "flex-start",
+                                }}
+                                dangerouslySetInnerHTML={{ __html: marked.parse(msg.text) }}
+                            />
+                        ) : (
+                            <span
+                                style={{
+                                    background: PRIMARY_HEX,
+                                    color: "#fff",
+                                    padding: "0.5rem 0.75rem",
+                                    borderRadius: "1rem",
+                                    display: "inline-block",
+                                    marginBottom: "0.25rem",
+                                    maxWidth: "75%",
+                                    wordBreak: "break-word",
+                                    alignSelf: "flex-end",
+                                }}
+                            >
+                                {msg.text}
+                            </span>
+                        )}
                     </div>
                 ))}
                 {children}

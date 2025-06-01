@@ -83,7 +83,7 @@ const plans = [
     oldPrice: "₱599",
     description: "Perfect for when you want to host your personal blog or a hobby side project.",
     features: ["2 Core Xeon CPU", "1 GB RAM", "30 GB SSD", "1 TB Transfer", "99.9% Uptime"],
-    url: ""
+    url: "#"
   },
   {
     name: "Business",
@@ -99,7 +99,7 @@ const plans = [
       "Free Domain & SSL",
       "Free DNS Management"
     ],
-    url: "",
+    url: "#",
     featured: "Most Popular"
   },
   {
@@ -117,7 +117,7 @@ const plans = [
       "Free DNS Management",
       "Free Offsite Backup"
     ],
-    url: ""
+    url: "#"
   }
 ];
 
