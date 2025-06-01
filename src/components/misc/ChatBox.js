@@ -299,9 +299,9 @@ const ChatBox = ({
                                 display: "flex",
                                 flexDirection: "row",
                                 alignItems: "center",
-                                width: "auto",
+                                width: "100%", // changed from "fit-content"
                                 maxWidth: "100%",
-                                // Remove justifyContent to avoid extra left padding
+                                justifyContent: msg.role === "user" ? "flex-end" : "flex-start"
                             }}
                         >
                             {msg.role === "user" && (
@@ -332,8 +332,7 @@ const ChatBox = ({
                                             display: "inline-block",
                                             marginBottom: "0.1rem",
                                             maxWidth: "75%",
-                                            wordBreak: "break-word",
-                                            marginLeft: "auto"
+                                            overflowWrap: "break-word"
                                         }}
                                     >
                                         {msg.content}
@@ -351,8 +350,7 @@ const ChatBox = ({
                                             display: "inline-block",
                                             marginBottom: "0.1rem",
                                             maxWidth: "75%",
-                                            wordBreak: "break-word"
-                                            // Removed any marginLeft here
+                                            overflowWrap: "break-word"
                                         }}
                                     >
                                         {msg.image && msg.image.type === "url" && (
