@@ -214,25 +214,28 @@ const ChatBox = ({
         if (msg.role === "assistant") prefix = "Cloudy replied: ";
         else if (msg.role === "user") prefix = "You said: ";
         else prefix = "";
-        try {
-            const audioBase64 = await TTS(`${prefix}${msg.content}`);
-            if (audioBase64) {
-                const audio = new window.Audio(`data:audio/wav;base64,${audioBase64}`);
-                // Pause any currently playing speech
-                if (!audio.paused) audio.pause();
-                audio.currentTime = 0;
-                audio.play().catch(() => {
-                    // fallback: try to reload and play again
-                    audio.load();
-                    audio.play();
-                });
-            }
-        } catch (err) {
-            // fallback to built-in TTS if Gemini fails
-            const utter = new window.SpeechSynthesisUtterance(prefix + (msg.content || ""));
-            utter.lang = "en-US";
-            window.speechSynthesis.speak(utter);
-        }
+        const utter = new window.SpeechSynthesisUtterance(prefix + (msg.content || ""));
+        utter.lang = "en-US";
+        window.speechSynthesis.speak(utter);
+        // try {
+        //     const audioBase64 = await TTS(`${prefix}${msg.content}`);
+        //     if (audioBase64) {
+        //         const audio = new window.Audio(`data:audio/wav;base64,${audioBase64}`);
+        //         // Pause any currently playing speech
+        //         if (!audio.paused) audio.pause();
+        //         audio.currentTime = 0;
+        //         audio.play().catch(() => {
+        //             // fallback: try to reload and play again
+        //             audio.load();
+        //             audio.play();
+        //         });
+        //     }
+        // } catch (err) {
+        //     // fallback to built-in TTS if Gemini fails
+        //     const utter = new window.SpeechSynthesisUtterance(prefix + (msg.content || ""));
+        //     utter.lang = "en-US";
+        //     window.speechSynthesis.speak(utter);
+        // }
     }
 
     return (

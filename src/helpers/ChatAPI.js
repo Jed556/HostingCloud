@@ -198,10 +198,9 @@ Your answer: ${description}
 
 // Generate speech using Gemini TTS
 export async function generateGeminiSpeech(messageText) {
-
     const response = await gemini.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: 'Say cheerfully: Have a wonderful day!' }] }],
+        contents: [{ parts: [{ text: messageText }] }],
         config: {
             responseModalities: ['AUDIO'],
             speechConfig: {
@@ -212,14 +211,8 @@ export async function generateGeminiSpeech(messageText) {
         },
     });
 
+    // Get base64 audio data (WAV)
     const data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    const audioBuffer = Buffer.from(data, 'base64');
-
-    return {
-        audio: {
-            type: "base64",
-            data: audioBuffer.toString('base64')
-        },
-        description: "Here is the generated speech:"
-    };
+    if (!data) throw new Error("No audio data returned from Gemini TTS");
+    return data; // base64 string, ready for <audio src={`data:audio/wav;base64,${data}`} />
 }
