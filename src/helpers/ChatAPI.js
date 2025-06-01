@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { GoogleGenAI, Modality } from "@google/genai";
+import { /** @type {message} */ } from "../interfaces/interfaces";
 
 // AI memory: HostingCloud features, pricing, and FAQ (PHP plans)
 export const AI_ROLE = `
@@ -158,6 +159,10 @@ export async function generateImage(messageText) {
 }
 
 // Main AI handler: get text first, then ask if image is relevant, then generate image if needed
+/**
+ * @param {string} messageText
+ * @returns {Promise<{image: {type: "base64"|"url", data: string}|null, description: string}>}
+ */
 export async function askAIWithImage(messageText) {
     // Step 1: Get the AI's text response
     const description = await askAI(messageText);

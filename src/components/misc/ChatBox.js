@@ -12,6 +12,8 @@ import {
 import { askAIWithImage as askAI } from "../../helpers/ChatAPI";
 // import { askAI as askAI } from "../../helpers/ChatAPI";
 import { marked } from "marked";
+import { v4 as uuidv4 } from "uuid";
+import { /** @type {message} */ } from "../../interfaces/interfaces";
 
 const ChatBoxContainer = tw.div`
   absolute z-50 flex flex-col border
@@ -51,6 +53,8 @@ const ChatInput = tw.textarea`
   bg-[#f3f0fa]
 `;
 
+const CHAT_HISTORY_KEY = "cloudy_chat_history";
+
 const ChatBox = ({
     onClose,
     style,
@@ -64,8 +68,14 @@ const ChatBox = ({
 }) => {
     const ref = useRef();
     const chatBodyRef = useRef();
+    /** @type {React.MutableRefObject<message[]>} */
     const [messages, setMessages] = useState([
-        { from: "bot", text: "Hello! How can I help you?" }
+        {
+            id: uuidv4(),
+            content: "Hello! How can I help you?",
+            role: "assistant",
+            createdAt: new Date().toISOString()
+        }
     ]);
     const [input, setInput] = useState("");
     const [boxSize, setBoxSize] = useState(
@@ -94,28 +104,56 @@ const ChatBox = ({
         if (onClose) onClose();
     };
 
+    // Load chat history from localStorage on mount (after clearing)
+    useEffect(() => {
+        const saved = localStorage.getItem(CHAT_HISTORY_KEY);
+        if (saved) {
+            try {
+                /** @type {message[]} */
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setMessages(parsed);
+                }
+            } catch { }
+        }
+    }, []);
+
+    // Save chat history to localStorage on every message change
+    useEffect(() => {
+        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
+    }, [messages]);
+
     // Handle sending a message
     const handleSend = async () => {
         if (input.trim() === "" || isLoading) return;
-        const userMsg = { from: "user", text: input };
-        setMessages([...messages, userMsg]);
+        const userMsg = {
+            id: uuidv4(),
+            content: input,
+            role: "user",
+            createdAt: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, userMsg]);
         setInput("");
         setIsLoading(true);
 
         try {
-            let aiResult = await askAI(userMsg.text);
-
-            // aiResult: { image, description }
-            setMessages(msgs => [
-                ...msgs,
-                {
-                    from: "bot",
-                    text: aiResult.description,
-                    image: aiResult.image || null
-                }
-            ]);
+            let aiResult = await askAI(userMsg.content);
+            const botMsg = {
+                id: uuidv4(),
+                content: aiResult.description,
+                role: "assistant",
+                createdAt: new Date().toISOString(),
+                ...(aiResult.image ? { image: aiResult.image } : {})
+            };
+            setMessages(prev => [...prev, botMsg]);
         } catch (err) {
-            setMessages(msgs => [...msgs, { from: "bot", text: "Sorry, AI is unavailable." }]);
+            const errorMsg = {
+                id: uuidv4(),
+                content: "Sorry, AI is unavailable.",
+                role: "error",
+                createdAt: new Date().toISOString()
+            };
+            setMessages(prev => [...prev, errorMsg]);
         } finally {
             setIsLoading(false);
         }
@@ -164,6 +202,11 @@ const ChatBox = ({
         }
     }, [messages]);
 
+    // Clear chat history on first site load
+    useEffect(() => {
+        localStorage.removeItem(CHAT_HISTORY_KEY);
+    }, []);
+
     return (
         <ChatBoxContainer
             ref={ref}
@@ -211,62 +254,59 @@ const ChatBox = ({
             >
                 {messages.map((msg, idx) => (
                     <div
-                        key={idx}
+                        key={msg.id || idx}
                         style={{
                             display: "flex",
-                            justifyContent: msg.from === "user" ? "flex-end" : "flex-start",
+                            flexDirection: "column",
+                            alignItems: msg.role === "user" ? "flex-end" : "flex-start",
                             marginBottom: "0.5rem"
                         }}
                     >
-                        {msg.from === "bot" ? (
-                            <span
-                                style={{
-                                    background: "#ede7f6",
-                                    color: PRIMARY_HEX,
-                                    padding: "0.5rem 0.75rem",
-                                    borderRadius: "1rem",
-                                    display: "inline-block",
-                                    marginBottom: "0.25rem",
-                                    maxWidth: "75%",
-                                    wordBreak: "break-word",
-                                    alignSelf: "flex-start",
-                                }}
-                            >
-                                {msg.image && msg.image.type === "url" && (
-                                    <img
-                                        src={msg.image.data}
-                                        alt="AI generated"
-                                        style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
-                                    />
-                                )}
-                                {msg.image && msg.image.type === "base64" && (
-                                    <img
-                                        src={`data:image/png;base64,${msg.image.data}`}
-                                        alt="AI generated"
-                                        style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
-                                    />
-                                )}
-                                <span
-                                    dangerouslySetInnerHTML={{ __html: marked.parse(msg.text) }}
+                        <span
+                            style={{
+                                background: msg.role === "user" ? PRIMARY_HEX : "#ede7f6",
+                                color: msg.role === "user" ? "#fff" : PRIMARY_HEX,
+                                padding: "0.5rem 0.75rem",
+                                borderRadius: "1rem",
+                                display: "inline-block",
+                                marginBottom: "0.1rem",
+                                maxWidth: "75%",
+                                wordBreak: "break-word",
+                                alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                            }}
+                        >
+                            {msg.image && msg.image.type === "url" && (
+                                <img
+                                    src={msg.image.data}
+                                    alt="AI generated"
+                                    style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
                                 />
-                            </span>
-                        ) : (
-                            <span
-                                style={{
-                                    background: PRIMARY_HEX,
-                                    color: "#fff",
-                                    padding: "0.5rem 0.75rem",
-                                    borderRadius: "1rem",
-                                    display: "inline-block",
-                                    marginBottom: "0.25rem",
-                                    maxWidth: "75%",
-                                    wordBreak: "break-word",
-                                    alignSelf: "flex-end",
-                                }}
-                            >
-                                {msg.text}
-                            </span>
-                        )}
+                            )}
+                            {msg.image && msg.image.type === "base64" && (
+                                <img
+                                    src={`data:image/png;base64,${msg.image.data}`}
+                                    alt="AI generated"
+                                    style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
+                                />
+                            )}
+                            {msg.role === "user"
+                                ? msg.content
+                                : <span dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) }} />
+                            }
+                        </span>
+                        <span
+                            style={{
+                                fontSize: "0.75rem",
+                                color: "#888",
+                                marginTop: "0.1rem",
+                                marginLeft: msg.role === "user" ? "auto" : 0,
+                                marginRight: msg.role === "user" ? 0 : "auto",
+                                paddingLeft: "0.25rem",
+                                paddingRight: "0.25rem"
+                            }}
+                        >
+                            {msg.createdAt && new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                     </div>
                 ))}
                 {children}
