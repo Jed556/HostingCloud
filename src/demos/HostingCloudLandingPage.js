@@ -76,6 +76,51 @@ const faqs = [
   }
 ];
 
+const plans = [
+  {
+    name: "Personal",
+    price: ["₱499", "/month"],
+    oldPrice: "₱599",
+    description: "Perfect for when you want to host your personal blog or a hobby side project.",
+    features: ["2 Core Xeon CPU", "1 GB RAM", "30 GB SSD", "1 TB Transfer", "99.9% Uptime"],
+    url: ""
+  },
+  {
+    name: "Business",
+    price: ["₱899", "/month"],
+    oldPrice: "₱1099",
+    description: "Perfect for hosting blogs with lots of traffic or heavy development projects",
+    features: [
+      "4 Core Xeon CPU",
+      "2 GB RAM",
+      "100 GB SSD",
+      "3 TB Transfer",
+      "99.9% Uptime",
+      "Free Domain & SSL",
+      "Free DNS Management"
+    ],
+    url: "",
+    featured: "Most Popular"
+  },
+  {
+    name: "Enterprise",
+    price: ["₱1499", "/month"],
+    oldPrice: "₱1799",
+    description: "Perfect for hosting production websites & API services with high traffic load",
+    features: [
+      "8 Core Xeon CPU",
+      "8 GB RAM",
+      "300 GB SSD",
+      "Unlimited Transfer",
+      "99.99% Uptime",
+      "Free Domain & SSL",
+      "Free DNS Management",
+      "Free Offsite Backup"
+    ],
+    url: ""
+  }
+];
+
 export default () => {
   return (
     <>
@@ -84,6 +129,8 @@ export default () => {
         <Hero
           heading="Welcome to HostingCloud"
           description="Experience reliable, secure, and scalable cloud hosting solutions tailored for your business. Get started with HostingCloud today and power your online presence with confidence."
+          primaryButtonText="Start 15 Day Free Trial"
+          primaryButtonUrl=""
         />
         <Features
           heading="Our Features"
@@ -93,6 +140,7 @@ export default () => {
         <Pricing
           heading="Pricing Plans"
           description="Flexible plans for every need. Whether you're just starting out or scaling up, HostingCloud has you covered."
+          plans={plans}
         />
         <MainFeature
           subheading="Reliable"
