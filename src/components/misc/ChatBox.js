@@ -9,8 +9,9 @@ import {
     getInitialBoxSize,
     isResizingHandle
 } from "../../helpers/chatboxHelpers";
-import { askAI } from "../../helpers/ChatAPI";
-import { marked } from "marked"; // <-- Add this import
+import { askAIWithImage as askAI } from "../../helpers/ChatAPI";
+// import { askAI as askAI } from "../../helpers/ChatAPI";
+import { marked } from "marked";
 
 const ChatBoxContainer = tw.div`
   absolute z-50 flex flex-col border
@@ -102,9 +103,17 @@ const ChatBox = ({
         setIsLoading(true);
 
         try {
-            let aiText = await askAI(userMsg.text);
+            let aiResult = await askAI(userMsg.text);
 
-            setMessages(msgs => [...msgs, { from: "bot", text: aiText }]);
+            // aiResult: { image, description }
+            setMessages(msgs => [
+                ...msgs,
+                {
+                    from: "bot",
+                    text: aiResult.description,
+                    image: aiResult.image || null
+                }
+            ]);
         } catch (err) {
             setMessages(msgs => [...msgs, { from: "bot", text: "Sorry, AI is unavailable." }]);
         } finally {
@@ -222,8 +231,25 @@ const ChatBox = ({
                                     wordBreak: "break-word",
                                     alignSelf: "flex-start",
                                 }}
-                                dangerouslySetInnerHTML={{ __html: marked.parse(msg.text) }}
-                            />
+                            >
+                                {msg.image && msg.image.type === "url" && (
+                                    <img
+                                        src={msg.image.data}
+                                        alt="AI generated"
+                                        style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
+                                    />
+                                )}
+                                {msg.image && msg.image.type === "base64" && (
+                                    <img
+                                        src={`data:image/png;base64,${msg.image.data}`}
+                                        alt="AI generated"
+                                        style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
+                                    />
+                                )}
+                                <span
+                                    dangerouslySetInnerHTML={{ __html: marked.parse(msg.text) }}
+                                />
+                            </span>
                         ) : (
                             <span
                                 style={{

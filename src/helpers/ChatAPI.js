@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 
 // AI memory: HostingCloud features, pricing, and FAQ (PHP plans)
 export const AI_ROLE = `
@@ -88,5 +88,105 @@ export async function askAI(messageText) {
         } catch {
             return "Sorry, AI is unavailable.";
         }
+    }
+}
+
+// Generate image using OpenAI DALL-E 3
+export async function generateOpenAIImage(messageText) {
+    const response = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: messageText,
+        n: 1,
+        quality: "hd",
+        size: "1024x1024",
+        response_format: "url",
+    });
+    const imageUrl = response.data[0].url;
+    return {
+        image: { type: "url", data: imageUrl },
+        description: "Here is the generated image:"
+    };
+}
+
+// Generate image using Gemini
+export async function generateGeminiImage(messageText) {
+    const geminiResponse = await gemini.models.generateContent({
+        model: "gemini-2.0-flash-exp-image-generation",
+        contents: messageText,
+        config: {
+            responseModalities: [Modality.TEXT, Modality.IMAGE],
+        },
+    });
+
+    if (geminiResponse?.candidates?.[0]?.content?.parts) {
+        const parts = geminiResponse.candidates[0].content.parts;
+        let imageData = "";
+        let description = "";
+
+        for (const part of parts) {
+            if (part.text) {
+                description = part.text;
+            } else if (part.inlineData?.data) {
+                imageData = part.inlineData.data;
+            }
+        }
+
+        if (imageData) {
+            return {
+                image: { type: "base64", data: imageData },
+                description: description || "Here is the generated image:"
+            };
+        }
+    }
+    throw new Error("Gemini API returned no image data.");
+}
+
+// Generate image using OpenAI, fallback to Gemini
+export async function generateImage(messageText) {
+    try {
+        return await generateOpenAIImage(messageText);
+    } catch (error) {
+        try {
+            return await generateGeminiImage(messageText);
+        } catch (geminiError) {
+            return {
+                image: null,
+                description: "Sorry, image generation is unavailable."
+            };
+        }
+    }
+}
+
+// Main AI handler: get text first, then ask if image is relevant, then generate image if needed
+export async function askAIWithImage(messageText) {
+    // Step 1: Get the AI's text response
+    const description = await askAI(messageText);
+
+    // Step 2: Ask the AI if an image is relevant (reply "1" if yes, "0" if not)
+    let shouldGenerateImage = false;
+    try {
+        const relevancePrompt = `
+Reply with "1" if generating an image would help visualize or explain the following user's question or your answer, and it is related to hosting/cloud/network/tech. Reply "0" if not. Do not explain your answer.
+
+User's question: ${messageText}
+Your answer: ${description}
+`;
+        const relevanceReply = await askAI(relevancePrompt);
+        if (typeof relevanceReply === "string" && relevanceReply.trim().startsWith("1")) {
+            shouldGenerateImage = true;
+        }
+    } catch {
+        // fallback: do not generate image
+    }
+
+    // Step 3: Generate image if relevant
+    if (shouldGenerateImage) {
+        const imageResult = await generateImage(messageText);
+        return {
+            image: imageResult.image,
+            description
+        };
+    } else {
+        return { image: null, description };
     }
 }
