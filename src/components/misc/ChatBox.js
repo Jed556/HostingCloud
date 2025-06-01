@@ -14,6 +14,7 @@ import { askAIWithImage as askAI } from "../../helpers/ChatAPI";
 import { marked } from "marked";
 import { v4 as uuidv4 } from "uuid";
 import { /** @type {message} */ } from "../../interfaces/interfaces";
+import { FaVolumeUp } from "react-icons/fa";
 
 const ChatBoxContainer = tw.div`
   absolute z-50 flex flex-col border
@@ -207,6 +208,17 @@ const ChatBox = ({
         localStorage.removeItem(CHAT_HISTORY_KEY);
     }, []);
 
+    // TTS function
+    function speakMessage(msg) {
+        let prefix = "";
+        if (msg.role === "assistant") prefix = "Cloudy replied: ";
+        else if (msg.role === "user") prefix = "You said: ";
+        else prefix = "";
+        const utter = new window.SpeechSynthesisUtterance(prefix + (msg.content || ""));
+        utter.lang = "en-US";
+        window.speechSynthesis.speak(utter);
+    }
+
     return (
         <ChatBoxContainer
             ref={ref}
@@ -262,38 +274,64 @@ const ChatBox = ({
                             marginBottom: "0.5rem"
                         }}
                     >
-                        <span
-                            style={{
-                                background: msg.role === "user" ? PRIMARY_HEX : "#ede7f6",
-                                color: msg.role === "user" ? "#fff" : PRIMARY_HEX,
-                                padding: "0.5rem 0.75rem",
-                                borderRadius: "1rem",
-                                display: "inline-block",
-                                marginBottom: "0.1rem",
-                                maxWidth: "75%",
-                                wordBreak: "break-word",
-                                alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                            }}
-                        >
-                            {msg.image && msg.image.type === "url" && (
-                                <img
-                                    src={msg.image.data}
-                                    alt="AI generated"
-                                    style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
-                                />
-                            )}
-                            {msg.image && msg.image.type === "base64" && (
-                                <img
-                                    src={`data:image/png;base64,${msg.image.data}`}
-                                    alt="AI generated"
-                                    style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
-                                />
-                            )}
-                            {msg.role === "user"
-                                ? msg.content
-                                : <span dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) }} />
-                            }
-                        </span>
+                        <div style={{
+                            display: "flex",
+                            flexDirection: msg.role === "user" ? "row-reverse" : "row",
+                            alignItems: "center",
+                            width: "100%",
+                            justifyContent: msg.role === "user" ? "flex-end" : "flex-start"
+                        }}>
+                            <span
+                                style={{
+                                    background: msg.role === "user" ? PRIMARY_HEX : "#ede7f6",
+                                    color: msg.role === "user" ? "#fff" : PRIMARY_HEX,
+                                    padding: "0.5rem 0.75rem",
+                                    borderRadius: "1rem",
+                                    display: "inline-block",
+                                    marginBottom: "0.1rem",
+                                    maxWidth: "75%",
+                                    wordBreak: "break-word",
+                                    alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                                }}
+                            >
+                                {msg.image && msg.image.type === "url" && (
+                                    <img
+                                        src={msg.image.data}
+                                        alt="AI generated"
+                                        style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
+                                    />
+                                )}
+                                {msg.image && msg.image.type === "base64" && (
+                                    <img
+                                        src={`data:image/png;base64,${msg.image.data}`}
+                                        alt="AI generated"
+                                        style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
+                                    />
+                                )}
+                                {msg.role === "user"
+                                    ? msg.content
+                                    : <span dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) }} />
+                                }
+                            </span>
+                            <button
+                                aria-label="Play message"
+                                onClick={() => speakMessage(msg)}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    marginLeft: msg.role === "assistant" ? 8 : 0,
+                                    marginRight: msg.role === "user" ? 8 : 0,
+                                    color: "#888",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    fontSize: "1.1rem"
+                                }}
+                                tabIndex={0}
+                            >
+                                <FaVolumeUp />
+                            </button>
+                        </div>
                         <span
                             style={{
                                 fontSize: "0.75rem",
