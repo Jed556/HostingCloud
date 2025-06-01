@@ -9,7 +9,7 @@ import {
     getInitialBoxSize,
     isResizingHandle
 } from "../../helpers/chatboxHelpers";
-import { askOpenAI, askGemini } from "../../helpers/ChatAPI";
+import { askAI } from "../../helpers/ChatAPI";
 
 const ChatBoxContainer = tw.div`
   absolute z-50 flex flex-col border
@@ -101,12 +101,8 @@ const ChatBox = ({
         setIsLoading(true);
 
         try {
-            let aiText;
-            try {
-                aiText = await askOpenAI(userMsg.text);
-            } catch (err) {
-                aiText = await askGemini(userMsg.text);
-            }
+            let aiText = await askAI(userMsg.text);
+
             setMessages(msgs => [...msgs, { from: "bot", text: aiText }]);
         } catch (err) {
             setMessages(msgs => [...msgs, { from: "bot", text: "Sorry, AI is unavailable." }]);

@@ -2,11 +2,11 @@ import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 
 const openai = new OpenAI({
-    apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+    apiKey: process.env.REACT_APP_OPENAI_API_KEY,
     dangerouslyAllowBrowser: true,
 });
 
-const gemini = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+const gemini = new GoogleGenAI({ apiKey: process.env.REACT_APP_GEMINI_API_KEY });
 
 export async function askOpenAI(messageText) {
     const response = await openai.chat.completions.create({
@@ -25,4 +25,17 @@ export async function askGemini(messageText) {
         contents: messageText,
     });
     return response.text || "No response provided by Gemini.";
+}
+
+// Helper: Try OpenAI, fall back to Gemini if OpenAI fails
+export async function askAI(messageText) {
+    try {
+        return await askOpenAI(messageText);
+    } catch (err) {
+        try {
+            return await askGemini(messageText);
+        } catch {
+            return "Sorry, AI is unavailable.";
+        }
+    }
 }
