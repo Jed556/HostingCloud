@@ -27,7 +27,7 @@ def home():
             </style>
         </head>
         <body>
-            <iframe src="http://localhost"></iframe>
+            <iframe src="https://hosting-cloud-app.vercel.app"></iframe>
         </body>
         </html>
     """)
