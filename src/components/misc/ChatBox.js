@@ -271,72 +271,112 @@ const ChatBox = ({
                             display: "flex",
                             flexDirection: "column",
                             alignItems: msg.role === "user" ? "flex-end" : "flex-start",
-                            marginBottom: "0.5rem"
+                            marginBottom: "0.5rem",
+                            width: "100%"
                         }}
                     >
-                        <div style={{
-                            display: "flex",
-                            flexDirection: msg.role === "user" ? "row-reverse" : "row",
-                            alignItems: "center",
-                            width: "100%",
-                            justifyContent: msg.role === "user" ? "flex-end" : "flex-start"
-                        }}>
-                            <span
-                                style={{
-                                    background: msg.role === "user" ? PRIMARY_HEX : "#ede7f6",
-                                    color: msg.role === "user" ? "#fff" : PRIMARY_HEX,
-                                    padding: "0.5rem 0.75rem",
-                                    borderRadius: "1rem",
-                                    display: "inline-block",
-                                    marginBottom: "0.1rem",
-                                    maxWidth: "75%",
-                                    wordBreak: "break-word",
-                                    alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                                }}
-                            >
-                                {msg.image && msg.image.type === "url" && (
-                                    <img
-                                        src={msg.image.data}
-                                        alt="AI generated"
-                                        style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
-                                    />
-                                )}
-                                {msg.image && msg.image.type === "base64" && (
-                                    <img
-                                        src={`data:image/png;base64,${msg.image.data}`}
-                                        alt="AI generated"
-                                        style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
-                                    />
-                                )}
-                                {msg.role === "user"
-                                    ? msg.content
-                                    : <span dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) }} />
-                                }
-                            </span>
-                            <button
-                                aria-label="Play message"
-                                onClick={() => speakMessage(msg)}
-                                style={{
-                                    background: "none",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    marginLeft: msg.role === "assistant" ? 8 : 0,
-                                    marginRight: msg.role === "user" ? 8 : 0,
-                                    color: "#888",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    fontSize: "1.1rem"
-                                }}
-                                tabIndex={0}
-                            >
-                                <FaVolumeUp />
-                            </button>
+                        <div
+                            style={{
+                                display: "flex",
+                                flexDirection: "row",
+                                alignItems: "center",
+                                width: "auto",
+                                maxWidth: "100%",
+                                // Remove justifyContent to avoid extra left padding
+                            }}
+                        >
+                            {msg.role === "user" && (
+                                <>
+                                    <button
+                                        aria-label="Play message"
+                                        onClick={() => speakMessage(msg)}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            cursor: "pointer",
+                                            marginRight: 8,
+                                            color: "#888",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            fontSize: "1.1rem"
+                                        }}
+                                        tabIndex={0}
+                                    >
+                                        <FaVolumeUp />
+                                    </button>
+                                    <span
+                                        style={{
+                                            background: PRIMARY_HEX,
+                                            color: "#fff",
+                                            padding: "0.5rem 0.75rem",
+                                            borderRadius: "1rem",
+                                            display: "inline-block",
+                                            marginBottom: "0.1rem",
+                                            maxWidth: "75%",
+                                            wordBreak: "break-word",
+                                            marginLeft: "auto"
+                                        }}
+                                    >
+                                        {msg.content}
+                                    </span>
+                                </>
+                            )}
+                            {(msg.role === "assistant" || msg.role === "error") && (
+                                <>
+                                    <span
+                                        style={{
+                                            background: "#ede7f6",
+                                            color: PRIMARY_HEX,
+                                            padding: "0.5rem 0.75rem",
+                                            borderRadius: "1rem",
+                                            display: "inline-block",
+                                            marginBottom: "0.1rem",
+                                            maxWidth: "75%",
+                                            wordBreak: "break-word"
+                                            // Removed any marginLeft here
+                                        }}
+                                    >
+                                        {msg.image && msg.image.type === "url" && (
+                                            <img
+                                                src={msg.image.data}
+                                                alt="AI generated"
+                                                style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
+                                            />
+                                        )}
+                                        {msg.image && msg.image.type === "base64" && (
+                                            <img
+                                                src={`data:image/png;base64,${msg.image.data}`}
+                                                alt="AI generated"
+                                                style={{ maxWidth: "100%", borderRadius: "0.75rem", marginBottom: 8 }}
+                                            />
+                                        )}
+                                        <span dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) }} />
+                                    </span>
+                                    <button
+                                        aria-label="Play message"
+                                        onClick={() => speakMessage(msg)}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            cursor: "pointer",
+                                            marginLeft: 8,
+                                            color: "#888",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            fontSize: "1.1rem"
+                                        }}
+                                        tabIndex={0}
+                                    >
+                                        <FaVolumeUp />
+                                    </button>
+                                </>
+                            )}
                         </div>
                         <span
                             style={{
                                 fontSize: "0.75rem",
                                 color: "#888",
-                                marginTop: "0.1rem",
+                                marginTop: "0.15rem",
                                 marginLeft: msg.role === "user" ? "auto" : 0,
                                 marginRight: msg.role === "user" ? 0 : "auto",
                                 paddingLeft: "0.25rem",
