@@ -148,6 +148,10 @@ const FloatingDraggableCircle = ({
             >
                 <Circle
                     onClick={() => setChatOpen((v) => !v)}
+                    onTouchEnd={e => {
+                        e.preventDefault();
+                        setChatOpen((v) => !v);
+                    }}
                     style={{ pointerEvents: "auto" }}
                     title="Open Chat"
                 >
