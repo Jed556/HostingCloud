@@ -9,7 +9,7 @@ import {
     getInitialBoxSize,
     isResizingHandle
 } from "../../helpers/chatboxHelpers";
-import { askAIWithImage as askAI, generateGeminiSpeech as TTS } from "../../helpers/ChatAPI";
+import { askAIWithImage as askAI } from "../../helpers/ChatAPI";
 // import { askAI as askAI } from "../../helpers/ChatAPI";
 import { marked } from "marked";
 import { v4 as uuidv4 } from "uuid";
@@ -56,6 +56,7 @@ const ChatInput = tw.textarea`
 `;
 
 const CHAT_HISTORY_KEY = "cloudy_chat_history";
+const CHAT_HISTORY_EXPIRY_MS = 1000 * 60 //24 * 60 * 60 * 1000; // 24 hours
 
 // Utility to detect touch devices
 const isTouchDevice = () =>
@@ -111,23 +112,41 @@ const ChatBox = ({
         if (onClose) onClose();
     };
 
-    // Load chat history from localStorage on mount (after clearing)
+    // Load chat history from localStorage on mount (with expiration)
     useEffect(() => {
         const saved = localStorage.getItem(CHAT_HISTORY_KEY);
         if (saved) {
             try {
-                /** @type {message[]} */
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) {
+                // Check for timestamp and expiry
+                if (
+                    parsed &&
+                    Array.isArray(parsed.messages) &&
+                    typeof parsed.timestamp === "number"
+                ) {
+                    if (Date.now() - parsed.timestamp < CHAT_HISTORY_EXPIRY_MS) {
+                        setMessages(parsed.messages);
+                    } else {
+                        // Expired, clear
+                        localStorage.removeItem(CHAT_HISTORY_KEY);
+                    }
+                } else if (Array.isArray(parsed)) {
+                    // Legacy format: just messages, no timestamp
                     setMessages(parsed);
                 }
             } catch { }
         }
     }, []);
 
-    // Save chat history to localStorage on every message change
+    // Save chat history to localStorage on every message change (with timestamp)
     useEffect(() => {
-        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
+        localStorage.setItem(
+            CHAT_HISTORY_KEY,
+            JSON.stringify({
+                messages,
+                timestamp: Date.now()
+            })
+        );
     }, [messages]);
 
     // Handle sending a message
@@ -175,12 +194,6 @@ const ChatBox = ({
         if (input.length >= 400 && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key) && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
         }
-    };
-
-    // Handle resizing
-    const handleResize = (e, { size }) => {
-        setBoxSize(size);
-        if (setSize) setSize(size);
     };
 
     // Animate input area when typing starts or stops
@@ -266,6 +279,7 @@ const ChatBox = ({
                 {messages.map((msg, idx) => (
                     <div
                         key={msg.id || idx}
+                        className="chat-message-row"
                         style={{
                             display: "flex",
                             flexDirection: "column",
@@ -275,13 +289,15 @@ const ChatBox = ({
                         }}
                     >
                         <div
+                            className="chat-message-content"
                             style={{
                                 display: "flex",
                                 flexDirection: "row",
                                 alignItems: "center",
-                                width: "100%", // changed from "fit-content"
+                                width: "100%",
                                 maxWidth: "100%",
-                                justifyContent: msg.role === "user" ? "flex-end" : "flex-start"
+                                justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+                                position: "relative"
                             }}
                         >
                             {msg.role === "user" && (
@@ -297,8 +313,12 @@ const ChatBox = ({
                                             color: "#888",
                                             display: "flex",
                                             alignItems: "center",
-                                            fontSize: "1.1rem"
+                                            fontSize: "1.1rem",
+                                            // Always show on mobile, show on hover for desktop
+                                            opacity: isTouchDevice() ? 1 : 0,
+                                            transition: "opacity 0.2s"
                                         }}
+                                        className="speech-btn"
                                         tabIndex={0}
                                     >
                                         <FaVolumeUp />
@@ -360,8 +380,12 @@ const ChatBox = ({
                                             color: "#888",
                                             display: "flex",
                                             alignItems: "center",
-                                            fontSize: "1.1rem"
+                                            fontSize: "1.1rem",
+                                            // Always show on mobile, show on hover for desktop
+                                            opacity: isTouchDevice() ? 1 : 0,
+                                            transition: "opacity 0.2s"
                                         }}
+                                        className="speech-btn"
                                         tabIndex={0}
                                     >
                                         <FaVolumeUp />
@@ -473,5 +497,22 @@ const ChatBox = ({
         </ChatBoxContainer>
     );
 };
+
+// Add this style block at the bottom of the file or in your global CSS
+if (typeof window !== "undefined") {
+    const styleId = "chatbox-speech-hover-style";
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement("style");
+        style.id = styleId;
+        style.innerHTML = `
+            @media (hover: hover) and (pointer: fine) {
+                .chat-message-row:hover .speech-btn {
+                    opacity: 1 !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
 
 export default ChatBox;
