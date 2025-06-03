@@ -57,6 +57,11 @@ const ChatInput = tw.textarea`
 
 const CHAT_HISTORY_KEY = "cloudy_chat_history";
 
+// Utility to detect touch devices
+const isTouchDevice = () =>
+    typeof window !== "undefined" &&
+    ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+
 const ChatBox = ({
     onClose,
     style,
@@ -218,18 +223,22 @@ const ChatBox = ({
                 height: boxSize.height,
                 minWidth: minWidth,
                 minHeight: minHeight,
-                resize: "both",
+                // Disable resize on mobile for better UX
+                resize: isTouchDevice() ? "none" : "both",
                 overflow: "auto",
                 ...style
             }}
             {...props}
-            // Allow user to resize the chatbox
             contentEditable={false}
             onMouseDown={e => {
-                // Prevent drag from parent if resizing
-                if (isResizingHandle(e, boxSize)) {
+                // Prevent drag from parent if resizing (desktop only)
+                if (!isTouchDevice() && isResizingHandle(e, boxSize)) {
                     e.stopPropagation();
                 }
+            }}
+            // Prevent drag on touch devices (mobile) so user can interact normally
+            onTouchStart={e => {
+                // Do not stop propagation on mobile, allow normal interaction
             }}
         >
             <ChatHeader
