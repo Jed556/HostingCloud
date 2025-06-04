@@ -9,10 +9,10 @@ import {
     getInitialBoxSize,
     isResizingHandle
 } from "../../helpers/chatboxHelpers";
-import { askAIWithImage as askAI } from "../../helpers/ChatAPI";
+import { askAIWithImage as askAI, askAI as askAIstart } from "../../helpers/ChatAPI";
 import { marked } from "marked";
 import { v4 as uuidv4 } from "uuid";
-import { FaVolumeUp } from "react-icons/fa";
+import { FaVolumeUp, FaVolumeMute } from "react-icons/fa";
 import { speakMessage } from "../../helpers/TTS";
 
 const ChatBoxContainer = tw.div`
@@ -48,7 +48,7 @@ const ChatInput = tw.textarea`
 `;
 
 const CHAT_HISTORY_KEY = "cloudy_chat_history";
-const CHAT_HISTORY_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CHAT_HISTORY_EXPIRY_MS = 60 * 1000;
 
 const isTouchDevice = () =>
     typeof window !== "undefined" &&
@@ -88,15 +88,63 @@ const ChatBox = ({
 }) => {
     const ref = useRef();
     const chatBodyRef = useRef();
-    const [messages, setMessages] = useState([initialAssistantMsg]);
+    const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [boxSize, setBoxSize] = useState(
         getInitialBoxSize({ width, height, minWidth, minHeight })
     );
     const [inputAnimated, setInputAnimated] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [speakingMsgId, setSpeakingMsgId] = useState(null);
     const inputRef = useRef();
     const isTouch = isTouchDevice();
+    // Track if history was loaded to avoid double-greeting
+    const historyLoaded = useRef(false);
+
+    // Load chat history on mount (only once)
+    useEffect(() => {
+        const saved = localStorage.getItem(CHAT_HISTORY_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed && Array.isArray(parsed.messages) && typeof parsed.timestamp === "number") {
+                    if (Date.now() - parsed.timestamp < CHAT_HISTORY_EXPIRY_MS) {
+                        setMessages(parsed.messages);
+                        historyLoaded.current = true;
+                        return;
+                    } else {
+                        localStorage.removeItem(CHAT_HISTORY_KEY);
+                    }
+                } else if (Array.isArray(parsed)) {
+                    setMessages(parsed);
+                    historyLoaded.current = true;
+                    return;
+                }
+            } catch { }
+        }
+        // If no valid history or expired, generate new greeting
+        (async () => {
+            const aiGreeting = await askAIstart("Greet the user as Cloudy, a friendly support bot for HostingCloud. Be concise and welcoming.");
+            setMessages([
+                {
+                    id: uuidv4(),
+                    content: aiGreeting,
+                    role: "assistant",
+                    createdAt: new Date().toISOString()
+                }
+            ]);
+        })();
+    }, []);
+
+    // Save chat history on every message change
+    useEffect(() => {
+        if (messages.length > 0) {
+            localStorage.setItem(
+                CHAT_HISTORY_KEY,
+                JSON.stringify({ messages, timestamp: Date.now() })
+            );
+        }
+    }, [messages]);
 
     // Animate in on mount
     useEffect(() => {
@@ -122,14 +170,29 @@ const ChatBox = ({
                 if (parsed && Array.isArray(parsed.messages) && typeof parsed.timestamp === "number") {
                     if (Date.now() - parsed.timestamp < CHAT_HISTORY_EXPIRY_MS) {
                         setMessages(parsed.messages);
+                        return; // Load history and do not generate greeting
                     } else {
+                        // Expired, clear
                         localStorage.removeItem(CHAT_HISTORY_KEY);
                     }
                 } else if (Array.isArray(parsed)) {
                     setMessages(parsed);
+                    return;
                 }
             } catch { }
         }
+        // If no valid history or expired, generate new greeting
+        (async () => {
+            const aiGreeting = await askAIstart("Greet the user as Cloudy, a friendly support bot for HostingCloud. Be concise and welcoming.");
+            setMessages([
+                {
+                    id: uuidv4(),
+                    content: aiGreeting,
+                    role: "assistant",
+                    createdAt: new Date().toISOString()
+                }
+            ]);
+        })();
     }, []);
     useEffect(() => {
         localStorage.setItem(
@@ -157,7 +220,10 @@ const ChatBox = ({
     }, [messages]);
 
     // Handlers
-    const handleClose = useCallback(() => onClose && onClose(), [onClose]);
+    const handleClose = useCallback(() => {
+        window.speechSynthesis.cancel(); // Always stop TTS on close
+        if (onClose) onClose();
+    }, [onClose]);
     const handleSend = useCallback(async () => {
         if (input.trim() === "" || isLoading) return;
         const userMsg = {
@@ -209,6 +275,24 @@ const ChatBox = ({
     const bubbleStyle = (role) => role === "user"
         ? { background: PRIMARY_HEX, color: "#fff" }
         : { background: "#ede7f6", color: PRIMARY_HEX };
+
+    // Patch TTS to set speaking state and handle stop on click
+    const handleSpeakMessage = useCallback((msg) => {
+        if (speakingMsgId === msg.id) {
+            // Stop TTS if already speaking this message
+            window.speechSynthesis.cancel();
+            setSpeakingMsgId(null);
+            return;
+        }
+        // Cancel any current speech
+        window.speechSynthesis.cancel();
+        setSpeakingMsgId(msg.id);
+        // Speak the message
+        const utter = new window.SpeechSynthesisUtterance(msg.content);
+        utter.onend = () => setSpeakingMsgId(null);
+        utter.onerror = () => setSpeakingMsgId(null);
+        window.speechSynthesis.speak(utter);
+    }, [speakingMsgId]);
 
     return (
         <ChatBoxContainer
@@ -277,12 +361,16 @@ const ChatBox = ({
                                 <>
                                     <button
                                         aria-label="Play message"
-                                        onClick={() => speakMessage(msg)}
+                                        onClick={() => handleSpeakMessage(msg)}
                                         style={speechBtnStyle(true, isTouch)}
                                         className="speech-btn"
                                         tabIndex={0}
                                     >
-                                        <FaVolumeUp />
+                                        {speakingMsgId === msg.id ? (
+                                            <FaVolumeMute />
+                                        ) : (
+                                            <FaVolumeUp />
+                                        )}
                                     </button>
                                     <span
                                         style={{
@@ -329,12 +417,16 @@ const ChatBox = ({
                                     </span>
                                     <button
                                         aria-label="Play message"
-                                        onClick={() => speakMessage(msg)}
+                                        onClick={() => handleSpeakMessage(msg)}
                                         style={speechBtnStyle(false, isTouch)}
                                         className="speech-btn"
                                         tabIndex={0}
                                     >
-                                        <FaVolumeUp />
+                                        {speakingMsgId === msg.id ? (
+                                            <FaVolumeMute />
+                                        ) : (
+                                            <FaVolumeUp />
+                                        )}
                                     </button>
                                 </>
                             )}
@@ -451,6 +543,11 @@ if (typeof window !== "undefined") {
                 .chat-message-row:hover .speech-btn {
                     opacity: 1 !important;
                 }
+            }
+            @keyframes chatbox-pulse {
+                0% { box-shadow: 0 0 0 0.2rem rgba(95,46,234,0.25); }
+                50% { box-shadow: 0 0 0 0.6rem rgba(95,46,234,0.35); }
+                100% { box-shadow: 0 0 0 0.2rem rgba(95,46,234,0.25); }
             }
         `;
         document.head.appendChild(style);
