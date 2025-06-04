@@ -305,6 +305,7 @@ const ChatBox = ({
                 minHeight,
                 resize: isTouch ? "none" : "both",
                 overflow: "auto",
+                pointerEvents: "auto", // Ensure pointer events are enabled
                 ...style
             }}
             {...props}
@@ -312,7 +313,10 @@ const ChatBox = ({
             onMouseDown={e => {
                 if (!isTouch && isResizingHandle(e, boxSize)) e.stopPropagation();
             }}
-            onTouchStart={handleTouchStart}
+            onTouchStart={e => {
+                // Only stop propagation if you want to prevent parent drag, but do NOT prevent default or block pointer events
+                // e.stopPropagation();
+            }}
         >
             <ChatHeader
                 style={{
