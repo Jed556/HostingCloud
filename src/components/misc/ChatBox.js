@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import tw from "twin.macro";
 import {
     PRIMARY_HEX,
@@ -10,10 +10,8 @@ import {
     isResizingHandle
 } from "../../helpers/chatboxHelpers";
 import { askAIWithImage as askAI } from "../../helpers/ChatAPI";
-// import { askAI as askAI } from "../../helpers/ChatAPI";
 import { marked } from "marked";
 import { v4 as uuidv4 } from "uuid";
-import { /** @type {message} */ } from "../../interfaces/interfaces";
 import { FaVolumeUp } from "react-icons/fa";
 import { speakMessage } from "../../helpers/TTS";
 
@@ -23,28 +21,22 @@ const ChatBoxContainer = tw.div`
   rounded-2xl shadow-2xl
   bg-white
 `;
-
 const ChatHeader = tw.div`
   flex items-center justify-between px-6 py-4 border-b
   rounded-t-2xl
 `;
-
 const ChatTitle = tw.span`
   font-bold text-lg tracking-wide
 `;
-
 const ChatClose = tw.button`
   ml-2 px-2 py-1 rounded text-xl font-bold transition
 `;
-
 const ChatBody = tw.div`
   flex-1 overflow-y-auto text-sm px-6 py-4
 `;
-
 const ChatInputContainer = tw.div`
   px-4 py-3 border-t bg-white rounded-b-2xl
 `;
-
 const ChatInput = tw.textarea`
   w-full px-4 py-2 border focus:outline-none transition
   resize-none
@@ -56,12 +48,32 @@ const ChatInput = tw.textarea`
 `;
 
 const CHAT_HISTORY_KEY = "cloudy_chat_history";
-const CHAT_HISTORY_EXPIRY_MS = 1000 * 60 //24 * 60 * 60 * 1000; // 24 hours
+const CHAT_HISTORY_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-// Utility to detect touch devices
 const isTouchDevice = () =>
     typeof window !== "undefined" &&
     ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+
+const initialAssistantMsg = {
+    id: uuidv4(),
+    content: "Hello! How can I help you?",
+    role: "assistant",
+    createdAt: new Date().toISOString()
+};
+
+const speechBtnStyle = (isUser, isTouch) => ({
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    marginRight: isUser ? 8 : 0,
+    marginLeft: !isUser ? 8 : 0,
+    color: "#888",
+    display: "flex",
+    alignItems: "center",
+    fontSize: "1.1rem",
+    opacity: isTouch ? 1 : 0,
+    transition: "opacity 0.2s"
+});
 
 const ChatBox = ({
     onClose,
@@ -71,26 +83,20 @@ const ChatBox = ({
     height = DEFAULT_HEIGHT,
     minWidth = MIN_WIDTH,
     minHeight = MIN_HEIGHT,
-    setSize, // optional callback for parent to track size
+    setSize,
     ...props
 }) => {
     const ref = useRef();
     const chatBodyRef = useRef();
-    /** @type {React.MutableRefObject<message[]>} */
-    const [messages, setMessages] = useState([
-        {
-            id: uuidv4(),
-            content: "Hello! How can I help you?",
-            role: "assistant",
-            createdAt: new Date().toISOString()
-        }
-    ]);
+    const [messages, setMessages] = useState([initialAssistantMsg]);
     const [input, setInput] = useState("");
     const [boxSize, setBoxSize] = useState(
         getInitialBoxSize({ width, height, minWidth, minHeight })
     );
     const [inputAnimated, setInputAnimated] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const inputRef = useRef();
+    const isTouch = isTouchDevice();
 
     // Animate in on mount
     useEffect(() => {
@@ -107,50 +113,52 @@ const ChatBox = ({
         }
     }, []);
 
-    // No close animation, just call onClose immediately
-    const handleClose = () => {
-        if (onClose) onClose();
-    };
-
-    // Load chat history from localStorage on mount (with expiration)
+    // Chat history load/save with expiry
     useEffect(() => {
         const saved = localStorage.getItem(CHAT_HISTORY_KEY);
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                // Check for timestamp and expiry
-                if (
-                    parsed &&
-                    Array.isArray(parsed.messages) &&
-                    typeof parsed.timestamp === "number"
-                ) {
+                if (parsed && Array.isArray(parsed.messages) && typeof parsed.timestamp === "number") {
                     if (Date.now() - parsed.timestamp < CHAT_HISTORY_EXPIRY_MS) {
                         setMessages(parsed.messages);
                     } else {
-                        // Expired, clear
                         localStorage.removeItem(CHAT_HISTORY_KEY);
                     }
                 } else if (Array.isArray(parsed)) {
-                    // Legacy format: just messages, no timestamp
                     setMessages(parsed);
                 }
             } catch { }
         }
     }, []);
-
-    // Save chat history to localStorage on every message change (with timestamp)
     useEffect(() => {
         localStorage.setItem(
             CHAT_HISTORY_KEY,
-            JSON.stringify({
-                messages,
-                timestamp: Date.now()
-            })
+            JSON.stringify({ messages, timestamp: Date.now() })
         );
     }, [messages]);
 
-    // Handle sending a message
-    const handleSend = async () => {
+    // Input animation
+    useEffect(() => setInputAnimated(input.length > 0), [input]);
+
+    // Auto-grow textarea
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.style.height = "40px";
+            inputRef.current.style.height = inputRef.current.scrollHeight + "px";
+        }
+    }, [input]);
+
+    // Auto-scroll to bottom
+    useEffect(() => {
+        if (chatBodyRef.current) {
+            chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+        }
+    }, [messages]);
+
+    // Handlers
+    const handleClose = useCallback(() => onClose && onClose(), [onClose]);
+    const handleSend = useCallback(async () => {
         if (input.trim() === "" || isLoading) return;
         const userMsg = {
             id: uuidv4(),
@@ -161,7 +169,6 @@ const ChatBox = ({
         setMessages(prev => [...prev, userMsg]);
         setInput("");
         setIsLoading(true);
-
         try {
             let aiResult = await askAI(userMsg.content);
             const botMsg = {
@@ -172,21 +179,18 @@ const ChatBox = ({
                 ...(aiResult.image ? { image: aiResult.image } : {})
             };
             setMessages(prev => [...prev, botMsg]);
-        } catch (err) {
-            const errorMsg = {
+        } catch {
+            setMessages(prev => [...prev, {
                 id: uuidv4(),
                 content: "Sorry, AI is unavailable.",
                 role: "error",
                 createdAt: new Date().toISOString()
-            };
-            setMessages(prev => [...prev, errorMsg]);
+            }]);
         } finally {
             setIsLoading(false);
         }
-    };
-
-    // Handle Enter key
-    const handleInputKeyDown = (e) => {
+    }, [input, isLoading]);
+    const handleInputKeyDown = useCallback(e => {
         if (e.key === "Enter") {
             e.preventDefault();
             handleSend();
@@ -194,38 +198,17 @@ const ChatBox = ({
         if (input.length >= 400 && !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key) && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
         }
-    };
+    }, [input, handleSend]);
 
-    // Animate input area when typing starts or stops
-    useEffect(() => {
-        if (input.length > 0) {
-            setInputAnimated(true);
-        } else {
-            setInputAnimated(false);
-        }
-    }, [input]);
+    // Prevent parent drag on mobile
+    const handleTouchStart = useCallback(e => {
+        if (isTouch) e.stopPropagation();
+    }, [isTouch]);
 
-    // Auto-grow textarea height as user types, allow continuous growth (no max)
-    const inputRef = useRef();
-
-    useEffect(() => {
-        if (inputRef.current) {
-            inputRef.current.style.height = "40px";
-            inputRef.current.style.height = inputRef.current.scrollHeight + "px";
-        }
-    }, [input]);
-
-    // Auto-scroll to bottom when messages change
-    useEffect(() => {
-        if (chatBodyRef.current) {
-            chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
-        }
-    }, [messages]);
-
-    // Clear chat history on first site load
-    useEffect(() => {
-        localStorage.removeItem(CHAT_HISTORY_KEY);
-    }, []);
+    // Style for message bubble
+    const bubbleStyle = (role) => role === "user"
+        ? { background: PRIMARY_HEX, color: "#fff" }
+        : { background: "#ede7f6", color: PRIMARY_HEX };
 
     return (
         <ChatBoxContainer
@@ -234,28 +217,18 @@ const ChatBox = ({
                 borderColor: PRIMARY_HEX,
                 width: boxSize.width,
                 height: boxSize.height,
-                minWidth: minWidth,
-                minHeight: minHeight,
-                // Disable resize on mobile for better UX
-                resize: isTouchDevice() ? "none" : "both",
+                minWidth,
+                minHeight,
+                resize: isTouch ? "none" : "both",
                 overflow: "auto",
                 ...style
             }}
             {...props}
             contentEditable={false}
             onMouseDown={e => {
-                // Prevent drag from parent if resizing (desktop only)
-                if (!isTouchDevice() && isResizingHandle(e, boxSize)) {
-                    e.stopPropagation();
-                }
+                if (!isTouch && isResizingHandle(e, boxSize)) e.stopPropagation();
             }}
-            // Prevent drag on touch devices (mobile) so user can interact normally
-            onTouchStart={e => {
-                // On mobile, prevent parent drag logic from firing when interacting with chatbox
-                if (isTouchDevice()) {
-                    e.stopPropagation();
-                }
-            }}
+            onTouchStart={handleTouchStart}
         >
             <ChatHeader
                 style={{
@@ -267,10 +240,7 @@ const ChatBox = ({
                 <ChatClose
                     onClick={handleClose}
                     aria-label="Close"
-                    style={{
-                        color: "#fff",
-                        background: "rgba(60,13,153,0.08)"
-                    }}
+                    style={{ color: "#fff", background: "rgba(60,13,153,0.08)" }}
                     onMouseOver={e => e.currentTarget.style.background = "rgba(60,13,153,0.15)"}
                     onMouseOut={e => e.currentTarget.style.background = "rgba(60,13,153,0.08)"}
                 >×</ChatClose>
@@ -303,24 +273,12 @@ const ChatBox = ({
                                 position: "relative"
                             }}
                         >
-                            {msg.role === "user" && (
+                            {msg.role === "user" ? (
                                 <>
                                     <button
                                         aria-label="Play message"
                                         onClick={() => speakMessage(msg)}
-                                        style={{
-                                            background: "none",
-                                            border: "none",
-                                            cursor: "pointer",
-                                            marginRight: 8,
-                                            color: "#888",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            fontSize: "1.1rem",
-                                            // Always show on mobile, show on hover for desktop
-                                            opacity: isTouchDevice() ? 1 : 0,
-                                            transition: "opacity 0.2s"
-                                        }}
+                                        style={speechBtnStyle(true, isTouch)}
                                         className="speech-btn"
                                         tabIndex={0}
                                     >
@@ -328,8 +286,7 @@ const ChatBox = ({
                                     </button>
                                     <span
                                         style={{
-                                            background: PRIMARY_HEX,
-                                            color: "#fff",
+                                            ...bubbleStyle(msg.role),
                                             padding: "0.5rem 0.75rem",
                                             borderRadius: "1rem",
                                             display: "inline-block",
@@ -341,13 +298,11 @@ const ChatBox = ({
                                         {msg.content}
                                     </span>
                                 </>
-                            )}
-                            {(msg.role === "assistant" || msg.role === "error") && (
+                            ) : (
                                 <>
                                     <span
                                         style={{
-                                            background: "#ede7f6",
-                                            color: PRIMARY_HEX,
+                                            ...bubbleStyle(msg.role),
                                             padding: "0.5rem 0.75rem",
                                             borderRadius: "1rem",
                                             display: "inline-block",
@@ -375,19 +330,7 @@ const ChatBox = ({
                                     <button
                                         aria-label="Play message"
                                         onClick={() => speakMessage(msg)}
-                                        style={{
-                                            background: "none",
-                                            border: "none",
-                                            cursor: "pointer",
-                                            marginLeft: 8,
-                                            color: "#888",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            fontSize: "1.1rem",
-                                            // Always show on mobile, show on hover for desktop
-                                            opacity: isTouchDevice() ? 1 : 0,
-                                            transition: "opacity 0.2s"
-                                        }}
+                                        style={speechBtnStyle(false, isTouch)}
                                         className="speech-btn"
                                         tabIndex={0}
                                     >
@@ -414,10 +357,7 @@ const ChatBox = ({
                 {children}
             </ChatBody>
             <ChatInputContainer
-                style={{
-                    borderColor: PRIMARY_HEX,
-                    background: "#fff",
-                }}
+                style={{ borderColor: PRIMARY_HEX, background: "#fff" }}
             >
                 <div
                     style={{
@@ -501,7 +441,6 @@ const ChatBox = ({
     );
 };
 
-// Add this style block at the bottom of the file or in your global CSS
 if (typeof window !== "undefined") {
     const styleId = "chatbox-speech-hover-style";
     if (!document.getElementById(styleId)) {

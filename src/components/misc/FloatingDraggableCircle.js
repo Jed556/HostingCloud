@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Rnd } from "react-rnd";
 import tw from "twin.macro";
 import ChatBox from "./ChatBox";
 
 const CIRCLE_SIZE = 64;
-const PADDING = 50; // 50px from all sides
+const PADDING = 50;
 
 const Circle = tw.div`
   w-16 h-16 bg-gradient-to-br from-primary-500 to-blue-500 rounded-full flex items-center justify-center shadow-2xl text-white text-3xl font-extrabold z-50
@@ -22,18 +22,18 @@ const FloatingDraggableCircle = ({
     ),
     style = {},
 }) => {
-    // Default to 50px from lower right
-    const getDefaultPosition = () => ({
+    const getDefaultPosition = useCallback(() => ({
         x: window.innerWidth - CIRCLE_SIZE - PADDING,
         y: window.innerHeight - CIRCLE_SIZE - PADDING,
-    });
+    }), []);
 
-    const [position, setPosition] = useState(getDefaultPosition());
+    const [position, setPosition] = useState(getDefaultPosition);
     const [visible, setVisible] = useState(false);
     const [chatOpen, setChatOpen] = useState(false);
     const rndRef = useRef();
+    const [dragging, setDragging] = useState(false);
 
-    // Update position on resize to keep it on screen
+    // Keep circle on screen on resize
     useEffect(() => {
         const handleResize = () => {
             setPosition(pos => ({
@@ -46,21 +46,17 @@ const FloatingDraggableCircle = ({
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    // If initial is provided, use it instead of default
+    // Use initial position if provided
     useEffect(() => {
         if (initial && typeof initial.x === "number" && typeof initial.y === "number") {
             setPosition({ x: initial.x, y: initial.y });
         }
     }, [initial]);
 
-    // Prevent page scroll while dragging using Rnd's onDrag/onDragStart/onDragStop
-    const [dragging, setDragging] = useState(false);
-
+    // Prevent page scroll while dragging
     useEffect(() => {
         if (!dragging) return;
-        const preventScroll = (e) => {
-            e.preventDefault();
-        };
+        const preventScroll = e => e.preventDefault();
         window.addEventListener("wheel", preventScroll, { passive: false });
         window.addEventListener("touchmove", preventScroll, { passive: false });
         return () => {
@@ -70,19 +66,17 @@ const FloatingDraggableCircle = ({
     }, [dragging]);
 
     // Calculate anchor for chatbox based on circle position
-    const getChatBoxAnchor = () => {
+    const getChatBoxAnchor = useCallback(() => {
         const centerX = position.x + CIRCLE_SIZE / 2;
         const centerY = position.y + CIRCLE_SIZE / 2;
         const vw = window.innerWidth;
         const vh = window.innerHeight;
-        // Default: bottom center
         let anchor = {
             left: "50%",
             transform: "translateX(-50%)",
             bottom: CIRCLE_SIZE + 20,
             top: undefined,
         };
-        // If circle is in top half, show chatbox below
         if (centerY < vh / 2) {
             anchor = {
                 left: "50%",
@@ -91,13 +85,10 @@ const FloatingDraggableCircle = ({
                 bottom: undefined,
             };
         }
-        // If circle is on left third, align left
         if (centerX < vw / 3) {
             anchor.left = 0;
             anchor.transform = "none";
-        }
-        // If circle is on right third, align right
-        else if (centerX > (vw * 2) / 3) {
+        } else if (centerX > (vw * 2) / 3) {
             anchor.left = undefined;
             anchor.right = 0;
             anchor.transform = "none";
@@ -105,10 +96,23 @@ const FloatingDraggableCircle = ({
             anchor.right = undefined;
         }
         return anchor;
-    };
+    }, [position]);
 
-    // Always keep the circle fixed to the viewport (not scrolling with the page)
-    // and prevent going out of bounds visually
+    const handleDragStart = useCallback(() => setDragging(true), []);
+    const handleDragStop = useCallback((_, d) => {
+        setDragging(false);
+        setPosition({
+            x: clamp(d.x, PADDING, window.innerWidth - CIRCLE_SIZE - PADDING),
+            y: clamp(d.y, PADDING, window.innerHeight - CIRCLE_SIZE - PADDING),
+        });
+    }, []);
+    const handleCircleClick = useCallback(() => setChatOpen(v => !v), []);
+    const handleCircleTouchEnd = useCallback(e => {
+        e.preventDefault();
+        setChatOpen(v => !v);
+    }, []);
+    const handleChatClose = useCallback(() => setChatOpen(false), []);
+
     return (
         <div
             style={{
@@ -126,14 +130,8 @@ const FloatingDraggableCircle = ({
                 className="floating-draggable-circle-rnd"
                 size={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE }}
                 position={position}
-                onDragStart={() => setDragging(true)}
-                onDragStop={(_, d) => {
-                    setDragging(false);
-                    setPosition({
-                        x: clamp(d.x, PADDING, window.innerWidth - CIRCLE_SIZE - PADDING),
-                        y: clamp(d.y, PADDING, window.innerHeight - CIRCLE_SIZE - PADDING),
-                    });
-                }}
+                onDragStart={handleDragStart}
+                onDragStop={handleDragStop}
                 bounds="parent"
                 enableResizing={false}
                 dragTransition={{ type: "spring", stiffness: 120, damping: 18 }}
@@ -147,11 +145,8 @@ const FloatingDraggableCircle = ({
                 }}
             >
                 <Circle
-                    onClick={() => setChatOpen((v) => !v)}
-                    onTouchEnd={e => {
-                        e.preventDefault();
-                        setChatOpen((v) => !v);
-                    }}
+                    onClick={handleCircleClick}
+                    onTouchEnd={handleCircleTouchEnd}
                     style={{ pointerEvents: "auto" }}
                     title="Open Chat"
                 >
@@ -159,7 +154,7 @@ const FloatingDraggableCircle = ({
                 </Circle>
                 {chatOpen && (
                     <ChatBox
-                        onClose={() => setChatOpen(false)}
+                        onClose={handleChatClose}
                         style={{
                             position: "absolute",
                             ...getChatBoxAnchor(),
