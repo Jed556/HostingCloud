@@ -251,7 +251,10 @@ const ChatBox = ({
             }}
             // Prevent drag on touch devices (mobile) so user can interact normally
             onTouchStart={e => {
-                // Do not stop propagation on mobile, allow normal interaction
+                // On mobile, prevent parent drag logic from firing when interacting with chatbox
+                if (isTouchDevice()) {
+                    e.stopPropagation();
+                }
             }}
         >
             <ChatHeader
